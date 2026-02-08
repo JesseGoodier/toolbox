@@ -42,7 +42,7 @@ jobs:
       - name: Run Trivy vulnerability scanner on all images
         run: |
           mkdir -p trivy-results
-          for IMAGE in toolbox-common toolbox toolbox-aws toolbox-gcp toolbox-azure; do
+          for IMAGE in toolbox-common toolbox toolbox-aws toolbox-gcp toolbox-azure toolbox-homebrew; do
             echo "Scanning $REGISTRY/$IMAGE:latest..."
             trivy image --format json --output "trivy-results/$IMAGE.json" \
               --severity CRITICAL,HIGH --ignore-unfixed \
@@ -59,7 +59,7 @@ jobs:
 
           # Check if any image has vulnerabilities
           CVE_FOUND=false
-          for IMAGE in toolbox-common toolbox toolbox-aws toolbox-gcp toolbox-azure; do
+          for IMAGE in toolbox-common toolbox toolbox-aws toolbox-gcp toolbox-azure toolbox-homebrew; do
             if grep -q "Vulnerabilities" "trivy-results/$IMAGE.json" 2>/dev/null; then
               echo "High/Critical vulnerabilities found in $IMAGE."
               CVE_FOUND=true

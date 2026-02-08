@@ -11,7 +11,7 @@ variable "REGISTRY" {
 }
 
 group "default" {
-  targets = ["common", "aws", "gcp", "azure", "combined"]
+  targets = ["common", "aws", "gcp", "azure", "combined", "homebrew"]
 }
 
 target "common" {
@@ -64,4 +64,11 @@ target "combined" {
     "${REGISTRY}/toolbox:${TAG}",
     "${REGISTRY}/toolbox:${DATE_TAG}"
   ]
+}
+
+target "homebrew" {
+  context = "homebrew"
+  dockerfile = "Dockerfile"
+  platforms = ["linux/amd64", "linux/arm64"]
+  tags = ["${REGISTRY}/toolbox-homebrew:${TAG}", "${REGISTRY}/toolbox-homebrew:${DATE_TAG}"]
 }
