@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zsh bash-completion \
     dnsutils netcat-openbsd tcpdump openssl iputils-ping \
     strace procps lsof \
+    systemd cron \
     gosu \
     && rm -rf /var/lib/apt/lists/*
 
