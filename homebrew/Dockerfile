@@ -24,7 +24,7 @@ RUN (cd /lib/systemd/system/sysinit.target.wants/ && ls | grep -v systemd-tmpfil
 # Phase 2: Brew packages (as linuxbrew)
 USER linuxbrew
 RUN brew install \
-    doggo eza fd fzf htop kubectl mtr neovim node python \
+    curl doggo eza fd fzf htop kubectl mtr neovim node python \
     rclone ripgrep the_silver_searcher tree uv vim wget \
     yq zsh-autosuggestions zsh-syntax-highlighting \
     && brew cleanup --prune=all
