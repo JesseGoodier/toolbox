@@ -1,3 +1,4 @@
+# ---- Runtime stage: homebrew toolbox ----
 FROM docker.io/homebrew/brew:latest
 
 # Phase 1: System packages via apt-get (as root)
@@ -6,13 +7,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zsh bash-completion \
     dnsutils netcat-openbsd tcpdump openssl iputils-ping \
     strace procps lsof \
+    systemd systemd-sysv dbus cron \
     gosu \
     && rm -rf /var/lib/apt/lists/*
+
+# Strip unnecessary systemd units that fail/hang in containers
+RUN (cd /lib/systemd/system/sysinit.target.wants/ && ls | grep -v systemd-tmpfiles-setup | xargs rm -f) && \
+    rm -f /lib/systemd/system/multi-user.target.wants/* \
+          /etc/systemd/system/*.wants/* \
+          /lib/systemd/system/local-fs.target.wants/* \
+          /lib/systemd/system/sockets.target.wants/*udev* \
+          /lib/systemd/system/sockets.target.wants/*initctl* \
+          /lib/systemd/system/basic.target.wants/* \
+          /lib/systemd/system/anaconda.target.wants/*
 
 # Phase 2: Brew packages (as linuxbrew)
 USER linuxbrew
 RUN brew install \
-    doggo eza fd fzf htop kubectl mtr neovim python \
+    curl doggo eza fd fzf htop kubectl mtr neovim node python \
     rclone ripgrep the_silver_searcher tree uv vim wget \
     yq zsh-autosuggestions zsh-syntax-highlighting \
     && brew cleanup --prune=all
@@ -60,4 +72,5 @@ ENV SHELL=/bin/zsh
 ENV HOME=/home/toolbox
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 WORKDIR /toolbox
-CMD ["sleep", "infinity"]
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
