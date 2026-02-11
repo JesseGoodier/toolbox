@@ -112,6 +112,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set Date Tag
+        run: echo "DATE_TAG=$(date +%Y-%m-%d)" >> $GITHUB_ENV
+
       - name: Build AMD64
         run: |
           ./build_images.sh --platform linux/amd64 --metadata-file bake-metadata-amd64.json --push
