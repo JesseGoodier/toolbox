@@ -37,6 +37,9 @@ if [ -f /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh ]; th
 fi
 
 # Key bindings
+
+bindkey '^A' beginning-of-line
+bindkey '^E' end-of-line
 bindkey "^[[H" beginning-of-line
 bindkey "^[[F" end-of-line
 bindkey "^[[3~" delete-char
