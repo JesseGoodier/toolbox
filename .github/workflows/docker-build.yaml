@@ -8,12 +8,14 @@ on:
       action:
         description: "Choose action"
         required: true
-        default: "push if fixable CVE found"
+        default: "push core images if fixable CVE"
         type: choice
         options:
-          - "push if fixable CVE found"
+          - "push core images if fixable CVE"
+          - "push homebrew only"
+          - "push homebrew arm only"
           - "cve scan only"
-          - "push images"
+          - "push core images"
 
 env:
   REGISTRY: ghcr.io/jessegoodier
@@ -21,7 +23,7 @@ env:
 jobs:
   cve-scan:
     name: CVE Scan
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.action != 'push images') }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.action != 'push core images' && inputs.action != 'push homebrew only' && inputs.action != 'push homebrew arm only') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # Needed to push reports
@@ -39,10 +41,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y trivy
 
+      - name: Determine Target Images
+        id: targets
+        run: |
+          if [[ "${{ inputs.action }}" == "push homebrew only" || "${{ inputs.action }}" == "push homebrew arm only" ]]; then
+            echo "IMAGES=toolbox-homebrew" >> $GITHUB_ENV
+          else
+            # Default to core images (common, toolbox, aws, gcp, azure)
+            # excluding homebrew for daily/core runs
+            echo "IMAGES=toolbox-common toolbox toolbox-aws toolbox-gcp toolbox-azure" >> $GITHUB_ENV
+          fi
+
       - name: Run Trivy vulnerability scanner on all images
         run: |
           mkdir -p trivy-results
-          for IMAGE in toolbox-common toolbox toolbox-aws toolbox-gcp toolbox-azure toolbox-homebrew; do
+          for IMAGE in $IMAGES; do
             echo "Scanning $REGISTRY/$IMAGE:latest..."
             trivy image --format json --output "trivy-results/$IMAGE.json" \
               --severity CRITICAL,HIGH --ignore-unfixed \
@@ -59,7 +72,9 @@ jobs:
 
           # Check if any image has vulnerabilities
           CVE_FOUND=false
-          for IMAGE in toolbox-common toolbox toolbox-aws toolbox-gcp toolbox-azure toolbox-homebrew; do
+          # Check if any image has vulnerabilities
+          CVE_FOUND=false
+          for IMAGE in $IMAGES; do
             if grep -q "Vulnerabilities" "trivy-results/$IMAGE.json" 2>/dev/null; then
               echo "High/Critical vulnerabilities found in $IMAGE."
               CVE_FOUND=true
@@ -92,7 +107,7 @@ jobs:
 
   build-amd64:
     needs: cve-scan
-    if: ${{ !cancelled() && ( (github.event_name == 'workflow_dispatch' && inputs.action == 'push images') || (needs.cve-scan.result == 'success' && needs.cve-scan.outputs.cve_found == 'true' && (github.event_name == 'schedule' || inputs.action != 'cve scan only')) ) }}
+    if: ${{ !cancelled() && ( (github.event_name == 'workflow_dispatch' && (inputs.action == 'push core images' || inputs.action == 'push homebrew only')) || (needs.cve-scan.result == 'success' && needs.cve-scan.outputs.cve_found == 'true' && (github.event_name == 'schedule' || inputs.action == 'push core images if fixable CVE')) ) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -115,9 +130,17 @@ jobs:
       - name: Set Date Tag
         run: echo "DATE_TAG=$(date +%Y-%m-%d)" >> $GITHUB_ENV
 
+      - name: Determine Bake Target
+        run: |
+          if [[ "${{ inputs.action }}" == "push homebrew only" ]]; then
+            echo "BAKE_TARGET=homebrew" >> $GITHUB_ENV
+          else
+            echo "BAKE_TARGET=core" >> $GITHUB_ENV
+          fi
+
       - name: Build AMD64
         run: |
-          ./build_images.sh --platform linux/amd64 --metadata-file bake-metadata-amd64.json --push
+          ./build_images.sh --platform linux/amd64 --metadata-file bake-metadata-amd64.json --push $BAKE_TARGET
         env:
           PUSH: true
           CI: true
@@ -133,7 +156,7 @@ jobs:
 
   build-arm64:
     needs: cve-scan
-    if: ${{ !cancelled() && ( (github.event_name == 'workflow_dispatch' && inputs.action == 'push images') || (needs.cve-scan.result == 'success' && needs.cve-scan.outputs.cve_found == 'true' && (github.event_name == 'schedule' || inputs.action != 'cve scan only')) ) }}
+    if: ${{ !cancelled() && ( (github.event_name == 'workflow_dispatch' && (inputs.action == 'push core images' || inputs.action == 'push homebrew only' || inputs.action == 'push homebrew arm only')) || (needs.cve-scan.result == 'success' && needs.cve-scan.outputs.cve_found == 'true' && (github.event_name == 'schedule' || inputs.action == 'push core images if fixable CVE')) ) }}
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -156,9 +179,17 @@ jobs:
       - name: Set Date Tag
         run: echo "DATE_TAG=$(date +%Y-%m-%d)" >> $GITHUB_ENV
 
+      - name: Determine Bake Target
+        run: |
+          if [[ "${{ inputs.action }}" == "push homebrew only" || "${{ inputs.action }}" == "push homebrew arm only" ]]; then
+            echo "BAKE_TARGET=homebrew" >> $GITHUB_ENV
+          else
+            echo "BAKE_TARGET=core" >> $GITHUB_ENV
+          fi
+
       - name: Build ARM64
         run: |
-          ./build_images.sh --platform linux/arm64 --metadata-file bake-metadata-arm64.json --push
+          ./build_images.sh --platform linux/arm64 --metadata-file bake-metadata-arm64.json --push $BAKE_TARGET
         env:
           PUSH: true
           CI: true
@@ -203,6 +234,14 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Determine Final Image List
+        run: |
+          if [[ "${{ inputs.action }}" == "push homebrew only" || "${{ inputs.action }}" == "push homebrew arm only" ]]; then
+             echo "TARGETS=homebrew" >> $GITHUB_ENV
+          else
+             echo "TARGETS=common aws gcp azure combined" >> $GITHUB_ENV
+          fi
+
       - name: Create manifest lists and push
         run: |
           # Install jq
@@ -212,43 +251,48 @@ jobs:
           DATE_TAG=$(date +%Y-%m-%d)
           TAG="latest"
 
-          for TARGET in common aws gcp azure combined homebrew; do
+          for TARGET in $TARGETS; do
             IMAGE_NAME="toolbox"
             if [ "$TARGET" != "combined" ]; then
               IMAGE_NAME="toolbox-$TARGET"
             fi
             
-            echo "Merging $IMAGE_NAME..."
+            echo "Processing $IMAGE_NAME..."
             
-            # Extract digest for the target from the metadata json
-            AMD64_DIGEST=$(jq -r ".\"$TARGET\".\"containerimage.digest\"" bake-metadata-amd64.json)
-            ARM64_DIGEST=$(jq -r ".\"$TARGET\".\"containerimage.digest\"" bake-metadata-arm64.json)
+            AMD64_DIGEST=""
+            ARM64_DIGEST=""
             
-            if [ "$AMD64_DIGEST" == "null" ] || [ "$ARM64_DIGEST" == "null" ]; then
-                echo "Error: Could not find digests for $TARGET"
+            if [ -f "bake-metadata-amd64.json" ]; then
+                AMD64_DIGEST=$(jq -r ".\"$TARGET\".\"containerimage.digest\"" bake-metadata-amd64.json)
+            fi
+            
+            if [ -f "bake-metadata-arm64.json" ]; then
+                ARM64_DIGEST=$(jq -r ".\"$TARGET\".\"containerimage.digest\"" bake-metadata-arm64.json)
+            fi
+            
+            if [ "$AMD64_DIGEST" == "null" ]; then AMD64_DIGEST=""; fi
+            if [ "$ARM64_DIGEST" == "null" ]; then ARM64_DIGEST=""; fi
+            
+            if [ -z "$AMD64_DIGEST" ] && [ -z "$ARM64_DIGEST" ]; then
+                echo "Error: Could not find any digests for $TARGET"
                 continue
             fi
 
-            # Construct references using the temporary tags we pushed
-            # We can also use digest, but using the tag ensures we are looking at what we just pushed.
-            # Using Digest is safer though.
-            
-            REF_AMD64="$REGISTRY/$IMAGE_NAME@$AMD64_DIGEST"
-            REF_ARM64="$REGISTRY/$IMAGE_NAME@$ARM64_DIGEST"
-            
-            # Special case for combined?
-            # if target is combined, the image name is toolbox-combined AND toolbox.
-            # We need to handle that.
-            
             TAGS="-t $REGISTRY/$IMAGE_NAME:latest -t $REGISTRY/$IMAGE_NAME:$DATE_TAG"
-            
             if [ "$TARGET" == "combined" ]; then
-                # combined target outputs toolbox-combined image
-                # We also want to tag 'toolbox' image
                 TAGS="$TAGS -t $REGISTRY/toolbox:latest -t $REGISTRY/toolbox:$DATE_TAG"
             fi
-
-            docker buildx imagetools create $TAGS $REF_AMD64 $REF_ARM64
+            
+            REFS=""
+            if [ -n "$AMD64_DIGEST" ]; then
+                REFS="$REFS $REGISTRY/$IMAGE_NAME@$AMD64_DIGEST"
+            fi
+            if [ -n "$ARM64_DIGEST" ]; then
+                REFS="$REFS $REGISTRY/$IMAGE_NAME@$ARM64_DIGEST"
+            fi
+            
+            echo "Creating manifest list (or tagging single image) for $IMAGE_NAME with refs: $REFS"
+            docker buildx imagetools create $TAGS $REFS
           done
 
       - name: Generate build history report
@@ -274,14 +318,21 @@ jobs:
           echo "Images built and pushed to GitHub Container Registry." >> "$REPORT"
           echo "" >> "$REPORT"
           echo "## Table of Contents" >> "$REPORT"
-          echo "- [toolbox](#toolbox)" >> "$REPORT"
-          echo "- [toolbox-common](#toolbox-common)" >> "$REPORT"
-          echo "- [toolbox-aws](#toolbox-aws)" >> "$REPORT"
-          echo "- [toolbox-gcp](#toolbox-gcp)" >> "$REPORT"
-          echo "- [toolbox-azure](#toolbox-azure)" >> "$REPORT"
+          # Dynamic TOC based on targets
+          for TARGET in $TARGETS; do
+              IMAGE_NAME="toolbox"
+              if [ "$TARGET" != "combined" ]; then
+                IMAGE_NAME="toolbox-$TARGET"
+              fi
+              echo "- [$IMAGE_NAME](#$IMAGE_NAME)" >> "$REPORT"
+          done
           echo "" >> "$REPORT"
 
-          for IMAGE in toolbox toolbox-common toolbox-aws toolbox-gcp toolbox-azure; do
+          for TARGET in $TARGETS; do
+            IMAGE="toolbox"
+            if [ "$TARGET" != "combined" ]; then
+              IMAGE="toolbox-$TARGET"
+            fi
             DIGEST=$(docker buildx imagetools inspect $REGISTRY/$IMAGE:latest 2>/dev/null | grep -m1 "^Digest:" | awk '{print $2}')
 
             # Get architecture-specific details
