@@ -39,5 +39,3 @@ alias rm='rm -i'
 export EDITOR='vim'
 export VISUAL='vim'
 
-bindkey '^A' beginning-of-line
-bindkey '^E' end-of-line

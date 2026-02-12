@@ -22,9 +22,13 @@ RUN (cd /lib/systemd/system/sysinit.target.wants/ && ls | grep -v systemd-tmpfil
           /lib/systemd/system/anaconda.target.wants/*
 
 # Phase 2: Brew packages (as linuxbrew)
+# Split into multiple layers so arm64 QEMU builds can cache progress
 USER linuxbrew
+RUN brew install python && brew cleanup --prune=all
+RUN brew install node && brew cleanup --prune=all
+RUN brew install neovim && brew cleanup --prune=all
 RUN brew install \
-    curl doggo eza fd fzf htop kubectl mtr neovim node python \
+    curl doggo eza fd fzf htop kubectl mtr \
     rclone ripgrep the_silver_searcher tree uv vim wget \
     yq zsh-autosuggestions zsh-syntax-highlighting \
     && brew cleanup --prune=all

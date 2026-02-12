@@ -14,6 +14,10 @@ group "default" {
   targets = ["common", "aws", "gcp", "azure", "combined", "homebrew"]
 }
 
+group "core" {
+  targets = ["common", "aws", "gcp", "azure", "combined"]
+}
+
 target "common" {
   context = "common"
   dockerfile = "Dockerfile"
