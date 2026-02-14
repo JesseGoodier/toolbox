@@ -13,12 +13,18 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --test) TEST_MODE=true ;;
         --platform=*) PLATFORM="${1#*=}" ;;
+        --platform) PLATFORM="$2"; shift ;;
         --metadata-file=*) METADATA_FILE="${1#*=}" ;;
-        --push=*)
+        --metadata-file) METADATA_FILE="$2"; shift ;;
+        --push)
             PUSH=true
-            TARGET_IMAGE="${1#*=}"
-            if [[ ! "$TARGET_IMAGE" =~ ^(common|aws|gcp|azure|combined|homebrew)$ ]]; then
-                echo "Error: Invalid target '$TARGET_IMAGE'. Must be one of: common, aws, gcp, azure, combined, homebrew."
+            ;;
+        *)
+            # Positional argument: treat as bake target
+            if [[ "$1" =~ ^(common|aws|gcp|azure|combined|homebrew|core|default)$ ]]; then
+                TARGET_IMAGE="$1"
+            else
+                echo "Error: Unknown argument or invalid target '$1'. Valid targets: common, aws, gcp, azure, combined, homebrew, core, default."
                 exit 1
             fi
             ;;
