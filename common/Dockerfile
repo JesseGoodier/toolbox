@@ -1,21 +1,16 @@
-FROM python:3.14-alpine AS builder
+FROM golang:alpine AS builder
 
 # Install tools needed for downloading/extracting
-RUN apk add --no-cache curl wget git jq tar bash
+RUN apk add --no-cache curl
 
 ARG TARGETPLATFORM
 
 # Initialize output directories
 RUN mkdir -p /out/usr/local/bin
 
-# 1. Download yq (latest version)
-RUN case ${TARGETPLATFORM} in \
-    linux/amd64) YQ_ARCH="amd64" ;; \
-    linux/arm64) YQ_ARCH="arm64" ;; \
-    *) echo "Unsupported platform: ${TARGETPLATFORM}" && exit 1 ;; \
-    esac && \
-    wget -qO /out/usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${YQ_ARCH}" && \
-    chmod +x /out/usr/local/bin/yq
+# 1. yq (latest version)
+RUN go install github.com/mikefarah/yq/v4@latest && \
+    mv /go/bin/yq /out/usr/local/bin/yq
 
 # 2. Download kubectl (latest stable version)
 RUN case ${TARGETPLATFORM} in \
@@ -35,6 +30,7 @@ FROM python:3.14-alpine
 # Install packages available via apk
 # Included caching for apk
 RUN --mount=type=cache,target=/var/cache/apk \
+    apk upgrade --no-cache && \
     apk add \
     # Shell and basics
     zsh bash bash-completion zsh-syntax-highlighting zsh-autosuggestions \
@@ -56,9 +52,10 @@ RUN --mount=type=cache,target=/var/cache/apk \
     uv gcompat libc6-compat \
     # Interactive tools
     fzf fd eza \
-    # Kube config fix
-    shadow su-exec \
-    && update-ca-certificates
+    # admin tools
+    shadow su-exec sudo \
+    && update-ca-certificates \
+    && python -m pip install --upgrade pip
 
 # Copy binaries and tools from builder
 COPY --from=builder /out /
@@ -100,7 +97,9 @@ RUN rm -rf /root/.cache /home/toolbox/.cache /home/toolbox/.azure && \
     mkdir -p /home/toolbox/.cache /home/toolbox/.azure && \
     chown -R toolbox:toolbox /home/toolbox /toolbox && \
     chmod -R 777 /home/toolbox /toolbox && \
-    chmod +x /usr/local/bin/kube-config-fix.sh
+    chmod +x /usr/local/bin/kube-config-fix.sh && \
+    echo "toolbox ALL=(ALL:ALL) NOPASSWD:ALL" >> /etc/sudoers.d/toolbox
+
 
 USER toolbox
 ENV USER=toolbox
