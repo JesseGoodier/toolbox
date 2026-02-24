@@ -65,13 +65,15 @@ jobs:
       - name: Check for vulnerabilities and generate report
         id: check_cve
         run: |
+          bash .github/scripts/migrate_reports_to_month_dirs.sh cve-audit
+
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
           DAY=$(date +%d)
-          mkdir -p cve-audit/$YEAR
+          REPORT_DIR="cve-audit/$YEAR/$MONTH"
+          REPORT_FILE="$REPORT_DIR/$MONTH-$DAY.md"
+          mkdir -p "$REPORT_DIR"
 
-          # Check if any image has vulnerabilities
-          CVE_FOUND=false
           # Check if any image has vulnerabilities
           CVE_FOUND=false
           for IMAGE in $IMAGES; do
@@ -89,12 +91,12 @@ jobs:
           fi
 
           # Format report (updated script handles multiple images)
-          python3 .github/scripts/format_cve_report.py trivy-results > cve-audit/$YEAR/$MONTH-$DAY.md
+          python3 .github/scripts/format_cve_report.py trivy-results > "$REPORT_FILE"
 
           # Commit report
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add cve-audit/$YEAR/$MONTH-$DAY.md
+          git add cve-audit
           git diff --quiet && git diff --staged --quiet || git commit -m "chore: add CVE audit report for $(date +%Y-%m-%d)"
           git push
 
@@ -297,12 +299,15 @@ jobs:
 
       - name: Generate build history report
         run: |
+          bash .github/scripts/migrate_reports_to_month_dirs.sh build-history
+
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
           DAY=$(date +%d)
           DATE_TAG=$(date +%Y-%m-%d)
           REGISTRY="ghcr.io/jessegoodier"
-          REPORT="build-history/$YEAR/$MONTH-$DAY.md"
+          REPORT_DIR="build-history/$YEAR/$MONTH"
+          REPORT="$REPORT_DIR/$MONTH-$DAY.md"
 
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
@@ -311,7 +316,7 @@ jobs:
             git pull --rebase origin main
           fi
 
-          mkdir -p build-history/$YEAR
+          mkdir -p "$REPORT_DIR"
 
           echo "# Build History - $DATE_TAG" > "$REPORT"
           echo "" >> "$REPORT"
@@ -392,6 +397,6 @@ jobs:
           # But for simplicity, we might skip the CVE section in build-history for this iteration
           # OR we add a step to download it.
 
-          git add "$REPORT"
+          git add build-history
           git diff --quiet && git diff --staged --quiet || git commit -m "chore: add build history for $DATE_TAG"
           git push
