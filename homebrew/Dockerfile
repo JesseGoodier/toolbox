@@ -1,5 +1,6 @@
 # ---- Runtime stage: homebrew toolbox ----
 FROM docker.io/homebrew/brew:latest
+LABEL org.opencontainers.image.source=https://github.com/jessegoodier/toolbox
 
 # Phase 1: System packages via apt-get (as root)
 USER root

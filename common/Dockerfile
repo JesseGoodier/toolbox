@@ -26,6 +26,7 @@ RUN case ${TARGETPLATFORM} in \
 
 # === Final Stage ===
 FROM python:3.14-alpine
+LABEL org.opencontainers.image.source=https://github.com/jessegoodier/toolbox
 
 # Install packages available via apk
 # Included caching for apk
