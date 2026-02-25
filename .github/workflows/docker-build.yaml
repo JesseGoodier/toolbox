@@ -177,7 +177,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Set Date Tag
         run: echo "DATE_TAG=$(date +%Y-%m-%d)" >> $GITHUB_ENV
 
@@ -207,11 +207,12 @@ jobs:
 
   merge-images:
     needs: [build-amd64, build-arm64]
+    if: ${{ !cancelled() && needs.build-amd64.result == 'success' && needs.build-arm64.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
       packages: write
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
