@@ -15,12 +15,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Strip unnecessary systemd units that fail/hang in containers
 RUN (cd /lib/systemd/system/sysinit.target.wants/ && ls | grep -v systemd-tmpfiles-setup | xargs rm -f) && \
     rm -f /lib/systemd/system/multi-user.target.wants/* \
-          /etc/systemd/system/*.wants/* \
-          /lib/systemd/system/local-fs.target.wants/* \
-          /lib/systemd/system/sockets.target.wants/*udev* \
-          /lib/systemd/system/sockets.target.wants/*initctl* \
-          /lib/systemd/system/basic.target.wants/* \
-          /lib/systemd/system/anaconda.target.wants/*
+    /etc/systemd/system/*.wants/* \
+    /lib/systemd/system/local-fs.target.wants/* \
+    /lib/systemd/system/sockets.target.wants/*udev* \
+    /lib/systemd/system/sockets.target.wants/*initctl* \
+    /lib/systemd/system/basic.target.wants/* \
+    /lib/systemd/system/anaconda.target.wants/*
 
 # Phase 2: Brew packages (as linuxbrew)
 # Split into multiple layers so arm64 QEMU builds can cache progress
@@ -36,7 +36,7 @@ RUN brew install \
 
 # Phase 3: Completions
 RUN mkdir -p "$(brew --prefix)/share/bash-completion/completions" \
-             "$(brew --prefix)/share/zsh/site-functions" && \
+    "$(brew --prefix)/share/zsh/site-functions" && \
     kubectl completion bash > "$(brew --prefix)/share/bash-completion/completions/kubectl" && \
     yq shell-completion bash > "$(brew --prefix)/share/bash-completion/completions/yq" && \
     rclone completion bash "$(brew --prefix)/share/bash-completion/completions/rclone" && \
@@ -77,5 +77,5 @@ ENV SHELL=/bin/zsh
 ENV HOME=/home/toolbox
 ENV PATH="/home/linuxbrew/.linuxbrew/bin:/home/linuxbrew/.linuxbrew/sbin:$PATH"
 WORKDIR /toolbox
-STOPSIGNAL SIGRTMIN+3
-CMD ["/sbin/init"]
+
+CMD ["sleep", "infinity"]
