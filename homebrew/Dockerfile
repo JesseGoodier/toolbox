@@ -22,6 +22,13 @@ RUN (cd /lib/systemd/system/sysinit.target.wants/ && ls | grep -v systemd-tmpfil
     /lib/systemd/system/basic.target.wants/* \
     /lib/systemd/system/anaconda.target.wants/*
 
+# Install Clickhouse
+COPY clickhouse.sh /tmp/clickhouse.sh
+RUN sh /tmp/clickhouse.sh && \
+    mv clickhouse /usr/local/bin/clickhouse && \
+    chmod +x /usr/local/bin/clickhouse && \
+    rm /tmp/clickhouse.sh
+
 # Phase 2: Brew packages (as linuxbrew)
 # Split into multiple layers so arm64 QEMU builds can cache progress
 USER linuxbrew
@@ -30,7 +37,7 @@ RUN brew install node && brew cleanup --prune=all
 RUN brew install neovim && brew cleanup --prune=all
 RUN brew install \
     curl doggo eza fd fzf htop kubectl mtr \
-    rclone ripgrep the_silver_searcher tree uv vim wget \
+    rclone ripgrep the_silver_searcher tree tmux uv vim wget \
     yq zsh-autosuggestions zsh-syntax-highlighting \
     && brew cleanup --prune=all
 
