@@ -1,3 +1,9 @@
+# ---- ClickHouse stage: use the packaged binary from the official image ----
+FROM clickhouse/clickhouse-server:latest AS clickhouse
+
+# ---- clickhouse-backup stage: use the official Altinity image ----
+FROM altinity/clickhouse-backup:latest AS clickhouse_backup
+
 # ---- Runtime stage: homebrew toolbox ----
 FROM docker.io/homebrew/brew:latest
 LABEL org.opencontainers.image.source=https://github.com/jessegoodier/toolbox
@@ -22,12 +28,12 @@ RUN (cd /lib/systemd/system/sysinit.target.wants/ && ls | grep -v systemd-tmpfil
     /lib/systemd/system/basic.target.wants/* \
     /lib/systemd/system/anaconda.target.wants/*
 
-# Install Clickhouse
-COPY clickhouse.sh /tmp/clickhouse.sh
-RUN sh /tmp/clickhouse.sh && \
-    mv clickhouse /usr/local/bin/clickhouse && \
-    chmod +x /usr/local/bin/clickhouse && \
-    rm /tmp/clickhouse.sh
+# Install ClickHouse from the official Docker image rather than the
+# self-extracting standalone binary, which unpacks into /tmp at runtime.
+COPY --from=clickhouse /usr/bin/clickhouse /usr/local/bin/clickhouse
+COPY --from=clickhouse_backup /bin/clickhouse-backup /usr/local/bin/clickhouse-backup
+RUN ln -sf /usr/local/bin/clickhouse /usr/local/bin/clickhouse-client && \
+    ln -sf /usr/local/bin/clickhouse /usr/local/bin/clickhouse-local
 
 # Phase 2: Brew packages (as linuxbrew)
 # Split into multiple layers so arm64 QEMU builds can cache progress
