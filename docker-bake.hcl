@@ -11,11 +11,15 @@ variable "REGISTRY" {
 }
 
 group "default" {
-  targets = ["common", "aws", "gcp", "azure", "combined", "homebrew"]
+  targets = ["common", "aws", "gcp", "azure", "combined", "homebrew", "common-debian", "aws-debian"]
 }
 
 group "core" {
   targets = ["common", "aws", "gcp", "azure", "combined"]
+}
+
+group "debian" {
+  targets = ["common-debian", "aws-debian"]
 }
 
 target "common" {
@@ -23,6 +27,16 @@ target "common" {
   dockerfile = "Dockerfile"
   platforms = ["linux/amd64", "linux/arm64"]
   tags = ["${REGISTRY}/toolbox-common:${TAG}", "${REGISTRY}/toolbox-common:${DATE_TAG}"]
+}
+
+target "common-debian" {
+  context = "common-debian"
+  dockerfile = "Dockerfile"
+  contexts = {
+    "common-files" = "./common"
+  }
+  platforms = ["linux/amd64", "linux/arm64"]
+  tags = ["${REGISTRY}/toolbox-common-debian:${TAG}", "${REGISTRY}/toolbox-common-debian:${DATE_TAG}"]
 }
 
 target "aws" {
@@ -33,6 +47,16 @@ target "aws" {
   }
   platforms = ["linux/amd64", "linux/arm64"]
   tags = ["${REGISTRY}/toolbox-aws:${TAG}", "${REGISTRY}/toolbox-aws:${DATE_TAG}"]
+}
+
+target "aws-debian" {
+  context = "aws-debian"
+  dockerfile = "Dockerfile"
+  contexts = {
+    "toolbox-common-debian" = "target:common-debian"
+  }
+  platforms = ["linux/amd64", "linux/arm64"]
+  tags = ["${REGISTRY}/toolbox-aws-debian:${TAG}", "${REGISTRY}/toolbox-aws-debian:${DATE_TAG}"]
 }
 
 target "gcp" {

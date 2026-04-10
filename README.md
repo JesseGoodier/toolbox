@@ -32,8 +32,13 @@ kubectl run debug --rm -it --image=ghcr.io/jessegoodier/toolbox -- zsh
 
 **Cloud-specific images** (lighter alternatives):
 - `toolbox-aws` - AWS CLI only
+- `toolbox-aws-debian` - AWS CLI only on Debian
 - `toolbox-gcp` - Google Cloud SDK only
 - `toolbox-azure` - Azure CLI only
+
+**Debian alternatives**:
+- `toolbox-common-debian` - Common tools on a Debian base
+- `toolbox-aws-debian` - Debian base + AWS CLI
 
 All images are multi-arch (`amd64`/`arm64`) and rebuilt daily.
 
@@ -48,6 +53,9 @@ kubectl run debug --rm -it --image=ghcr.io/jessegoodier/toolbox-aws -- zsh
 
 # Minimal (Common tools only)
 kubectl run debug --rm -it --image=ghcr.io/jessegoodier/toolbox-common -- zsh
+
+# Debian-based AWS image
+kubectl run debug --rm -it --image=ghcr.io/jessegoodier/toolbox-aws-debian -- zsh
 ```
 
 ## Images
@@ -56,7 +64,9 @@ kubectl run debug --rm -it --image=ghcr.io/jessegoodier/toolbox-common -- zsh
 |-------|-------------|
 | `ghcr.io/jessegoodier/toolbox` | **(Recommended)** Combined tools for AWS, GCP, and Azure |
 | `ghcr.io/jessegoodier/toolbox-common` | Base image with common tools |
+| `ghcr.io/jessegoodier/toolbox-common-debian` | Debian base image with common tools |
 | `ghcr.io/jessegoodier/toolbox-aws` | + AWS CLI |
+| `ghcr.io/jessegoodier/toolbox-aws-debian` | Debian base image + AWS CLI |
 | `ghcr.io/jessegoodier/toolbox-gcp` | + gcloud |
 | `ghcr.io/jessegoodier/toolbox-azure` | + az CLI |
 

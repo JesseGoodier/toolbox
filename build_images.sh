@@ -21,10 +21,10 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         *)
             # Positional argument: treat as bake target
-            if [[ "$1" =~ ^(common|aws|gcp|azure|combined|homebrew|core|default)$ ]]; then
+            if [[ "$1" =~ ^(common|common-debian|aws|aws-debian|gcp|azure|combined|homebrew|core|default|debian)$ ]]; then
                 TARGET_IMAGE="$1"
             else
-                echo "Error: Unknown argument or invalid target '$1'. Valid targets: common, aws, gcp, azure, combined, homebrew, core, default."
+                echo "Error: Unknown argument or invalid target '$1'. Valid targets: common, common-debian, aws, aws-debian, gcp, azure, combined, homebrew, core, default, debian."
                 exit 1
             fi
             ;;
