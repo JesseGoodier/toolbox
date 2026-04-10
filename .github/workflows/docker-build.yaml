@@ -8,14 +8,14 @@ on:
       action:
         description: "Choose action"
         required: true
-        default: "push core images if fixable CVE"
+        default: "push all images if fixable CVE"
         type: choice
         options:
-          - "push core images if fixable CVE"
+          - "push all images if fixable CVE"
           - "push homebrew only"
           - "push homebrew arm only"
           - "cve scan only"
-          - "push core images"
+          - "push all images"
 
 env:
   REGISTRY: ghcr.io/jessegoodier
@@ -23,7 +23,7 @@ env:
 jobs:
   cve-scan:
     name: CVE Scan
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.action != 'push core images' && inputs.action != 'push homebrew only' && inputs.action != 'push homebrew arm only') }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.action != 'push all images' && inputs.action != 'push homebrew only' && inputs.action != 'push homebrew arm only') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write # Needed to push reports
@@ -47,9 +47,8 @@ jobs:
           if [[ "${{ inputs.action }}" == "push homebrew only" || "${{ inputs.action }}" == "push homebrew arm only" ]]; then
             echo "IMAGES=toolbox-homebrew" >> $GITHUB_ENV
           else
-            # Default to core images (common, toolbox, aws, gcp, azure)
-            # excluding homebrew for daily/core runs
-            echo "IMAGES=toolbox-common toolbox toolbox-aws toolbox-gcp toolbox-azure" >> $GITHUB_ENV
+            # Default to all published images for daily/default runs
+            echo "IMAGES=toolbox-common toolbox toolbox-aws toolbox-gcp toolbox-azure toolbox-homebrew toolbox-common-debian toolbox-aws-debian" >> $GITHUB_ENV
           fi
 
       - name: Run Trivy vulnerability scanner on all images
@@ -109,7 +108,7 @@ jobs:
 
   build-amd64:
     needs: cve-scan
-    if: ${{ !cancelled() && ( (github.event_name == 'workflow_dispatch' && (inputs.action == 'push core images' || inputs.action == 'push homebrew only')) || (needs.cve-scan.result == 'success' && needs.cve-scan.outputs.cve_found == 'true' && (github.event_name == 'schedule' || inputs.action == 'push core images if fixable CVE')) ) }}
+    if: ${{ !cancelled() && ( (github.event_name == 'workflow_dispatch' && (inputs.action == 'push all images' || inputs.action == 'push homebrew only')) || (needs.cve-scan.result == 'success' && needs.cve-scan.outputs.cve_found == 'true' && (github.event_name == 'schedule' || inputs.action == 'push all images if fixable CVE')) ) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -137,7 +136,7 @@ jobs:
           if [[ "${{ inputs.action }}" == "push homebrew only" ]]; then
             echo "BAKE_TARGET=homebrew" >> $GITHUB_ENV
           else
-            echo "BAKE_TARGET=core" >> $GITHUB_ENV
+            echo "BAKE_TARGET=default" >> $GITHUB_ENV
           fi
 
       - name: Build AMD64
@@ -158,7 +157,7 @@ jobs:
 
   build-arm64:
     needs: cve-scan
-    if: ${{ !cancelled() && ( (github.event_name == 'workflow_dispatch' && (inputs.action == 'push core images' || inputs.action == 'push homebrew only' || inputs.action == 'push homebrew arm only')) || (needs.cve-scan.result == 'success' && needs.cve-scan.outputs.cve_found == 'true' && (github.event_name == 'schedule' || inputs.action == 'push core images if fixable CVE')) ) }}
+    if: ${{ !cancelled() && ( (github.event_name == 'workflow_dispatch' && (inputs.action == 'push all images' || inputs.action == 'push homebrew only' || inputs.action == 'push homebrew arm only')) || (needs.cve-scan.result == 'success' && needs.cve-scan.outputs.cve_found == 'true' && (github.event_name == 'schedule' || inputs.action == 'push all images if fixable CVE')) ) }}
     runs-on: ubuntu-24.04-arm
     permissions:
       contents: read
@@ -186,7 +185,7 @@ jobs:
           if [[ "${{ inputs.action }}" == "push homebrew only" || "${{ inputs.action }}" == "push homebrew arm only" ]]; then
             echo "BAKE_TARGET=homebrew" >> $GITHUB_ENV
           else
-            echo "BAKE_TARGET=core" >> $GITHUB_ENV
+            echo "BAKE_TARGET=default" >> $GITHUB_ENV
           fi
 
       - name: Build ARM64
