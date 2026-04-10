@@ -20,3 +20,4 @@ service-account*.json
 .DS_Store
 Thumbs.db
 temp/
+.codex
