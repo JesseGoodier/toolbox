@@ -1,8 +1,29 @@
 # ---- ClickHouse stage: use the packaged binary from the official image ----
 FROM clickhouse/clickhouse-server:latest AS clickhouse
 
-# ---- clickhouse-backup stage: use the official Altinity image ----
-FROM altinity/clickhouse-backup:latest AS clickhouse_backup
+# ---- clickhouse-backup stage: build from a pinned upstream commit ----
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS clickhouse_backup_builder
+
+ARG TARGETARCH
+ARG CLICKHOUSE_BACKUP_REF=c1faeb9762c4e99f72015e293c29f844f28bd084
+
+RUN apk add --no-cache ca-certificates curl tar
+
+WORKDIR /src/clickhouse-backup
+
+RUN curl -fsSL "https://codeload.github.com/Altinity/clickhouse-backup/tar.gz/${CLICKHOUSE_BACKUP_REF}" | \
+    tar -xz --strip-components=1
+
+RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
+    --mount=type=cache,target=/root/.cache/go-build,sharing=locked \
+    case "${TARGETARCH}" in \
+    amd64|arm64) ;; \
+    *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" \
+    go build -trimpath -buildvcs=false -tags netgo,osusergo \
+    -ldflags "-X 'main.version=${CLICKHOUSE_BACKUP_REF}' -X 'main.gitCommit=${CLICKHOUSE_BACKUP_REF}' -X 'main.buildDate=unknown' -X 'main.buildArch=linux/${TARGETARCH}'" \
+    -o /out/clickhouse-backup ./cmd/clickhouse-backup
 
 # ---- Runtime stage: homebrew toolbox ----
 FROM docker.io/homebrew/brew:latest
@@ -31,7 +52,7 @@ RUN (cd /lib/systemd/system/sysinit.target.wants/ && ls | grep -v systemd-tmpfil
 # Install ClickHouse from the official Docker image rather than the
 # self-extracting standalone binary, which unpacks into /tmp at runtime.
 COPY --from=clickhouse /usr/bin/clickhouse /usr/local/bin/clickhouse
-COPY --from=clickhouse_backup /bin/clickhouse-backup /usr/local/bin/clickhouse-backup
+COPY --from=clickhouse_backup_builder /out/clickhouse-backup /usr/local/bin/clickhouse-backup
 RUN ln -sf /usr/local/bin/clickhouse /usr/local/bin/clickhouse-client && \
     ln -sf /usr/local/bin/clickhouse /usr/local/bin/clickhouse-local
 
